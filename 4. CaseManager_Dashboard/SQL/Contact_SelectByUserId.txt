@@ -1,0 +1,114 @@
+USE [C56_Eleveight]
+GO
+/****** Object:  StoredProcedure [dbo].[CMDashboardContact_SelectByUserId]    Script Date: 8/25/2018 11:04:19 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Wendy
+-- Create date: 7/18/2018
+-- Description:	Select all from case manager student info two by userId
+-- =============================================
+ALTER PROCEDURE [dbo].[CMDashboardContact_SelectByUserId]
+	@UserBaseId int
+AS
+BEGIN
+	/* TEST SCRIPT
+	DECLARE	@return_value int
+
+	EXEC	@return_value = [dbo].[CaseManagerStudentInfoTwo_SelectByUserId]
+			@UserBaseId = 53
+
+	SELECT	'Return Value' = @return_value
+
+	*/
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+
+	--this is for phone
+	Declare @PhoneId int
+	Declare @EmailId int
+	Declare @SocialId int
+	--check if 3 types exists
+	IF NOT EXISTS ((select * from UserContactPhone where UserBaseId = @UserBaseId and PhoneTypeId = 1))
+	BEGIN 
+	Insert Into UserContactPhone(PhoneNumber, PhoneTypeId,UserBaseId,CreatedById,ModifiedById,IsPrimary)
+	Values(' ', 1, @UserBaseId,@UserBaseId,@UserBaseId, 1)
+	Set @PhoneId = SCOPE_IDENTITY();
+	END
+
+	IF NOT EXISTS ((select * from UserContactPhone where UserBaseId = @UserBaseId and PhoneTypeId = 2))
+	BEGIN 
+	Insert Into UserContactPhone(PhoneNumber, PhoneTypeId,UserBaseId,CreatedById,ModifiedById,IsPrimary)
+	Values(' ', 2, @UserBaseId,@UserBaseId,@UserBaseId, 1)
+	Set @PhoneId = SCOPE_IDENTITY();
+	END
+
+	IF NOT EXISTS ((select * from UserContactPhone where UserBaseId = @UserBaseId and PhoneTypeId = 3))
+	BEGIN 
+	Insert Into UserContactPhone(PhoneNumber, PhoneTypeId,UserBaseId,CreatedById,ModifiedById,IsPrimary)
+	Values(' ', 3, @UserBaseId,@UserBaseId,@UserBaseId, 1)
+	Set @PhoneId = SCOPE_IDENTITY();
+	END
+
+	select ucp.Id as UserPhoneId, p.TypeName,ucp.PhoneTypeId,
+	ucp.PhoneNumber 
+	from UserContactPhone ucp
+	join PhoneType p
+	on p.Id = ucp.PhoneTypeId
+	where ucp.UserBaseId = @UserBaseId and ucp.IsPrimary = 1
+	
+	-- this is for email
+	IF NOT EXISTS ((select * from UserContactEmail where UserBaseId = @UserBaseId and IsPrimary = 1))
+	BEGIN 
+	Insert Into UserContactEmail(Email, IsPrimary, CreatedById, ModifiedById, UserBaseId)
+	Values(' ', 1, @UserBaseId,@UserBaseId,@UserBaseId)
+	Set @EmailId = SCOPE_IDENTITY();
+	END
+
+	IF NOT EXISTS ((select * from UserContactEmail where UserBaseId = @UserBaseId and IsPrimary = 0))
+	BEGIN 
+	Insert Into UserContactEmail(Email, IsPrimary, CreatedById, ModifiedById, UserBaseId)
+	Values(' ', 0, @UserBaseId,@UserBaseId,@UserBaseId)
+	Set @EmailId = SCOPE_IDENTITY();
+	END
+	
+	Select uce.Id as UserEmailId, uce.IsPrimary,uce.Email
+	from UserContactEmail uce
+	where uce.UserBaseId = @UserBaseId
+	order by uce.IsPrimary DESC
+
+	-- this is for social
+	IF NOT EXISTS ((select * from UserContactSocial where UserBaseId = @UserBaseId and SocialMediaName = 'Facebook'))
+	BEGIN 
+	Insert Into UserContactSocial(UserName, SocialMediaName, UserBaseId,CreatedById, ModifiedById)
+	Values(' ', 'Facebook', @UserBaseId,@UserBaseId,@UserBaseId)
+	Set @SocialId = SCOPE_IDENTITY();
+	END
+
+	IF NOT EXISTS ((select * from UserContactSocial where UserBaseId = @UserBaseId and SocialMediaName = 'Twitter'))
+	BEGIN 
+	Insert Into UserContactSocial(UserName, SocialMediaName, UserBaseId,CreatedById, ModifiedById)
+	Values(' ', 'Twitter', @UserBaseId,@UserBaseId,@UserBaseId)
+	Set @SocialId = SCOPE_IDENTITY();
+	END
+
+	IF NOT EXISTS ((select * from UserContactSocial where UserBaseId = @UserBaseId and SocialMediaName = 'Instagram'))
+	BEGIN 
+	Insert Into UserContactSocial(UserName, SocialMediaName, UserBaseId,CreatedById, ModifiedById)
+	Values(' ', 'Instagram', @UserBaseId,@UserBaseId,@UserBaseId)
+	Set @SocialId = SCOPE_IDENTITY();
+	END
+
+
+	Select ucs.id as UserSocialId,ucs.SocialMediaName, ucs.UserName 
+	from UserContactSocial ucs
+	where ucs.UserBaseId=@UserBaseId
+	order by ucs.SocialMediaName
+
+
+END

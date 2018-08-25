@@ -1,0 +1,45 @@
+USE [C56_Eleveight]
+GO
+/****** Object:  StoredProcedure [dbo].[CMDashboardContact_Update]    Script Date: 8/25/2018 11:05:26 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+ALTER PROCEDURE [dbo].[CMDashboardContact_Update]
+	@PhoneData as UserContactPhoneUDT ReadOnly,
+	@SocialData as UserContactSocialUDT ReadOnly,
+	@EmailData as UserContactEmailUDT ReadOnly
+	
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+	Update ucp
+	Set ucp.PhoneNumber= p.PhoneNumber
+	From UserContactPhone ucp
+	INNER JOIN @PhoneData p
+	On ucp.Id = p.UserPhoneId
+
+	Update ucs
+	Set UserName = s.UserName
+	From UserContactSocial ucs
+	INNER JOIN @SocialData s
+	on ucs.Id = s.UserSocialId
+
+	Update uce
+	Set Email = e.Email
+	From UserContactEmail uce
+	INNER JOIN @EmailData e
+	on uce.Id = e.UserEmailId
+
+
+END

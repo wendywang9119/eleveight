@@ -1,0 +1,75 @@
+USE [C56_Eleveight]
+GO
+/****** Object:  StoredProcedure [dbo].[CMDashboardProfile_SelectByUserId]    Script Date: 8/25/2018 11:06:02 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Wendy
+-- Create date: 7/18/2018
+-- Description:	Select all from case manager student info one
+-- =============================================
+ALTER PROCEDURE [dbo].[CMDashboardProfile_SelectByUserId]
+	@UserBaseId int
+AS
+BEGIN
+	/* TEST SCRIPT
+	
+	DECLARE	@return_value int
+
+	EXEC	@return_value = [dbo].[CMDashboardProfile_SelectByUserId]
+			@UserBaseId = 28
+
+	SELECT	'Return Value' = @return_value
+	*/
+
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+
+	if not exists ((select * from UserDemographic where UserBaseId = @UserBaseId))
+	BEGIN
+	 EXEC UserDemographic_Insert
+		@UserBaseId = @UserBaseId,
+		@EthnicityId = 1,
+		@DateOfBirth = '',
+		@CitizenshipTypeId = 1,
+		@MartialStatusTypeId = 2, 
+		@PrimaryLanguageTypeId = 1, 
+		@SecondLanguageTypeId = 1,
+		@IsHomeless = 0,
+		@CreatedById = @UserBaseId,
+		@ModifiedById = @UserBaseId,
+		@CitizenshipValidationFileRepoId = null,
+		@SSNVisaValidationFileRepoId = null,
+		@birthCertUrl = null,
+		@ssnUrl = null,
+		@SSNVisa = '',
+		@Id = 1
+	 
+	END
+
+	select up.AvatarUrl,
+	ud.CitizenshipTypeId, ud.EthnicityId,
+	up.Id as UserProfileId,
+	ud.Id as UserDemoId,
+	up.UserBaseId,
+	up.FirstName, up.MiddleName, up.LastName,up.Gender
+	,ud.SSNVisa,ud.DateOfBirth, ud.birthCertUrl, ud.ssnUrl
+	from UserBase ub
+	left join UserProfile up
+	on ub.Id = up.UserBaseId
+	left join UserDemographic ud
+	on ub.Id = ud.UserBaseId
+	left join EthnicityType e
+	on ud.EthnicityId = e.Id
+	left join CitizenshipType c
+	on ud.CitizenshipTypeId = c.Id
+	where up.UserBaseId = @UserBaseId
+
+
+END
+
