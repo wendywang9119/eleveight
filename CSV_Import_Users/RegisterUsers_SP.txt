@@ -1,0 +1,108 @@
+USE [C56_Eleveight]
+GO
+/****** Object:  StoredProcedure [dbo].[RegisterCSVUsers]    Script Date: 8/24/2018 7:40:31 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Wendy
+-- Create date: 8/14/2018
+-- Description:	Register Valid Users from CSV files
+-- =============================================
+ALTER PROCEDURE [dbo].[RegisterCSVUsers]
+	 @UserData as [dbo].[CSVDataImportUDT] ReadOnly
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+	
+	-- Declare temp tables to store output userBaseId, email, token
+	declare @tmptable as table(UserBaseId int, Email varchar(200))
+	declare @firstNameTable as table(UserBaseId int, FirstName nvarchar(200))
+	declare @tokenTable as table(UserBaseId int, Token nvarchar(128))
+
+	-- Insert into UserBase and output inserted Id and email to temp table
+	insert into UserBase(Email, PasswordHash, Salt)
+	output inserted.Id, inserted.Email into @tmptable
+	select Email, PasswordHash, Salt from @UserData
+	
+	-- Insert into UserProfile
+	insert into UserProfile(UserBaseId, FirstName, MiddleName, LastName, Gender, AvatarUrl, BgImageUrl, Bio)
+	output inserted.UserbaseId, inserted.FirstName into @firstNameTable
+	select t.UserBaseId, u.FirstName, u.MiddleName, u.LastName, u.Gender, null, null, null from @UserData u join @tmptable t
+	on u.Email = t.Email
+
+	-- Insert into UserContactEmail
+	insert into UserContactEmail(UserBaseID, IsPrimary, Email, CreatedById, ModifiedById)
+	select t.UserBaseId, 1, u.Email, t.UserBaseId, t.UserBaseId from @UserData u join @tmptable t
+	on u.Email = t.Email
+
+	-- Insert into UserContactPhone
+	insert into UserContactPhone(UserBaseID, PhoneTypeId, PhoneNumber, CreatedById, ModifiedById)
+	select t.UserBaseId, 4, u.PhoneNumber, t.UserBaseId, t.UserBaseId from @Userdata u join @tmptable t
+	on u.Email = t.Email
+
+	-- Declare addressIds table
+	declare @addressIds as table (AddressId int, UserBaseId int)
+
+	-- Insert into address, but don't generate a new userbaseId
+	merge into Address
+	using (select 4 as typeId, 
+				z.City, z.Latitude,
+				z.Longitude,
+				sp.id as SpId, 
+				ud.PostalCode, 
+				'' as Street, 
+				t.userBaseId 
+			from @UserData ud
+			join ZipCodeData z on z.Zip=ud.PostalCode
+			join StateProvince sp on sp.StateProvinceCode=z.State
+			join @tmptable t on t.Email = ud.Email) as ad
+	on 1=0
+	when not matched then
+	insert (AddressTypeId, City, StateProvinceId, PostalCode, StreetAddress,Latitude,Longitude)
+	values(ad.typeId, ad.City, ad.SpId, ad.PostalCode, ad.Street, ad.Latitude, ad.Longitude)
+	output inserted.Id, ad.UserbaseId into @addressIds(AddressId, UserBaseId);
+
+	-- Insert into UserAddress 
+	insert into UserAddress (UserBaseId, AddressId, IsCurrent)
+	select t.UserBaseId, a.AddressId, 1 from @tmptable t
+	join @addressIds a on a.UserBaseId=t.UserBaseId
+
+	-- Check if there are case manager Id
+	if exists (select * from @UserData where CaseManager IS NOT NULL)
+	begin
+
+	-- Insert into StudentConnectionRel
+	Insert into StudentConnectionRel(StudentUserBaseId, CaseMgrUserBaseId)
+	select t.UserBaseId, u.CaseManager from @tmptable t
+	join @UserData u on t.Email = u.Email
+
+	-- Insert into UserBaseAppRoleRel(Approle = student)
+	insert into UserBaseAppRoleRel(UserBaseId, AppRoleId)
+	select t.UserBaseId, 9 from @tmptable t 
+	join @UserData u on t.Email = u.Email
+
+	end 
+	else begin
+	Insert into OrganizationUserGroupUser(OrganizationUserGroupId, UserBaseId)
+	select u.employeeeAppRole, t.UserBaseId from @tmptable t
+	join @UserData u on t.Email = u.Email
+	end
+
+	-- Insert into AppToken
+	insert into AppToken(UserBaseID, Token, AppTokenTypeId)
+	output inserted.UserBaseID, inserted.Token into @tokenTable
+	Select UserBaseId, NEWID(), 1 from @tmptable
+	
+	-- Return UserBaseId + FirstName + Email + token + tempPassword as a result
+	select t.UserBaseId, f.FirstName, t.Email, tk.Token, u.Password
+	from @tmptable t join @firstNameTable f 
+	on t.UserBaseId = f.UserBaseId join @tokenTable tk on t.UserBaseId = tk.UserBaseId
+	join @UserData u on u.Email = t.Email
+
+END
