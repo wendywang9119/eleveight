@@ -1,0 +1,101 @@
+USE [C56_Eleveight]
+GO
+/****** Object:  StoredProcedure [dbo].[Validate_CSV]    Script Date: 8/8/2018 10:39:55 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Wendy
+-- Create date: 8/6/2018
+-- Description:	Validate Users' Data from CSV files
+-- =============================================
+ALTER PROCEDURE [dbo].[Validate_CSV]
+	-- Add the parameters for the stored procedure here
+	@Data as [dbo].[CSVDataImportUDT] ReadOnly
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+
+	-- Create a temp table and insert Id and udt data into this table, add a column ErrorMessage
+	if(OBJECT_ID('tempdb..#CSVImport_Temp') is not null) drop table #CSVImport_Temp
+	select 
+	IDENTITY(int, 1,1) as Id,
+	*
+	into #CSVImport_Temp
+	from @Data
+	alter table #CSVImport_Temp add ErrorMessage nvarchar(2000)
+
+	-- Create Validation rules then update ErrorMessage
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' Email Already Exists or Invalid Email/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where tmp2.email in (Select Email from UserBase) or tmp2.Email not LIKE '_%@__%.__%'
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' FirstName should be in 3-50 characters/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where LEN(tmp2.FirstName) < 3 or LEN(tmp2.FirstName) > 50
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' MiddleName should be less than 50 characters/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where LEN(tmp2.MiddleName) > 50
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' LastName should be in 3-50 characters/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where LEN(tmp2.LastName) < 3 or LEN(tmp2.LastName) > 50
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' Invalid Phone Number/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where tmp2.PhoneNumber LIKE '%[^0-9]%' or LEN(tmp2.PhoneNumber) != 10
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' Invalid Postal Code/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where LEN(tmp2.PostalCode) != 5
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' RoleName Must Be Student/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where tmp2.RoleName not like '%Student%'
+
+	update tmp 
+	set tmp.ErrorMessage = CONCAT(tmp.ErrorMessage, ' CaseManagerId is required/')
+	from #CSVImport_Temp tmp
+	join #CSVImport_Temp tmp2 on tmp2.Id=tmp.id
+	where tmp2.CaseManager LIKE '%[^0-9]%'
+
+	-- Grab invalid data return as a result show on the DOM
+	Select * from #CSVImport_Temp where ErrorMessage IS NOT NULL
+
+	-- Grab valid data for register
+	declare @validData as [dbo].[CSVDataImportUDT]
+	insert into @validData([Email], [FirstName], [MiddleName], [LastName], [Gender], [PhoneNumber], [PostalCode], [RoleName], [SSNVisa], [StreetAddress], [StreetAddress2], [DateofBirth], [CaseManager], [City], [PasswordHash], [Salt], [Password])
+	select [Email], [FirstName], [MiddleName], [LastName], [Gender], [PhoneNumber], [PostalCode], [RoleName], [SSNVisa], [StreetAddress], [StreetAddress2], [DateofBirth], [CaseManager], [City], [PasswordHash], [Salt], [Password] from #CSVImport_Temp where ErrorMessage IS NULL
+	EXEC RegisterCSVUsers @UserData = @validData
+
+	--Drop CSV temptable and remove it in StagedCSVTable
+	declare @tmptblName nvarchar(max)
+	Set @tmptblName = (Select TableName from StagedCSVTables)
+	exec('drop table ' + @tmptblName)
+	delete from StagedCSVTables where TableName = @tmptblName
+
+
+
+END
+
+

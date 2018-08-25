@@ -1,0 +1,79 @@
+USE [C56_Eleveight]
+GO
+/****** Object:  StoredProcedure [dbo].[SelectAllUsers]    Script Date: 8/24/2018 7:36:45 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Wendy
+-- Create date: 7/3/2018
+-- Description:	Get all user information
+-- =============================================
+ALTER PROCEDURE [dbo].[SelectAllUsers]
+	@PageNumber int = 1
+AS
+BEGIN
+/* TEST SCRIPT
+
+	DECLARE	@return_value int
+
+	EXEC	@return_value = [dbo].[SelectAllUsers] @PageNumber=1
+
+	SELECT	'Return Value' = @return_value
+
+
+*/
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+	
+	declare @RecordCount int = (select count(*) from UserBase ub
+		
+		join dbo.UserBaseAppRoleRel as uar on ub.Id = uar.UserBaseId
+		join dbo.AppRole as ar on uar.AppRoleId = ar.id
+		join dbo.UserProfile as up on ub.Id = up.UserBaseId)
+
+	declare @PageCount int = @RecordCount / 10
+
+	declare @Remainder int = @RecordCount % 10
+			if (@Remainder > 0) begin
+			set @PageCount = @PageCount + 1
+
+	end
+
+	--added distinct to not display duplicates
+	select distinct
+		uar.UserBaseId, 
+		up.FirstName, 
+		up.LastName, 
+		ub.Email,
+		ub.IsEmailConfirmed,
+		ar.RoleName,
+		ub.IsAccountLocked,
+		(
+			select o.OrgName from Organization o
+			join OrganizationUserGroup ug on ug.OrganizationId = o.Id
+			join OrganizationUserGroupUser gu on gu.OrganizationUserGroupId=ug.Id
+			where gu.UserBaseId=uar.userbaseId
+		) as OrgName,
+		--o.OrgName,
+		CAST(case when ptf.UserBaseId = ub.id then 1 else 0 end as bit) as PaymentFail,
+		@PageCount as PageCount
+
+		from dbo.UserBase as ub
+		
+		join dbo.UserBaseAppRoleRel as uar on ub.Id = uar.UserBaseId
+		join dbo.AppRole as ar on uar.AppRoleId = ar.id
+		join dbo.UserProfile as up on ub.Id = up.UserBaseId
+		--join dbo.organizationusergroupuser as ougu on ub.Id = ougu.userbaseid
+		--join dbo.organizationusergroup as oug on ougu.organizationusergroupId = oug.id
+		--join dbo.organization as o on oug.organizationid = o.id
+		left join dbo.PlanTransactionsFailed as ptf on ptf.UserBaseId = ub.id
+
+		order by uar.UserBaseId
+		offset ((@PageNumber - 1) * 10) rows
+		fetch next 10 rows only
+END
