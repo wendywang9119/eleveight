@@ -2,6 +2,13 @@
 
 Eleveight is a platform for scholarships, internships, jobs and organization case management to connect schools, students and funding organizations. 
 
+Technology used in this project: 
+Front End: JavaScript, ReactJS, CSS3, Bootstrap 4.0, HTML5, AJAX, Typescript
+Middle Tier: C#, Web API, ADO.NET, MVC
+Back End: SQL Server 2017, T-SQL
+Other Technical: TFS, Visual Studio 2017, GIT
+
+
 -------------------------------------------------------------------------------------------------------------------------------------
 The features I worked on: 
 
