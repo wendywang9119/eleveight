@@ -5,7 +5,7 @@ Eleveight is a platform for scholarships, internships, jobs and organization cas
 -------------------------------------------------------------------------------------------------------------------------------------
 The features I worked on: 
 
-# User Management Page
+## User Management Page
 
 1. An user managment view to allow super admin role manage and validate registered users.
 
