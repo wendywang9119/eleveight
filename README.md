@@ -2,6 +2,8 @@
 
 Eleveight is a platform for scholarships, internships, jobs and organization case management to connect schools, students and funding organizations. 
 
+Technology I used in this project: JS/React, TypeScript, C#/.NET, SSMS/T-SQL
+
 -------------------------------------------------------------------------------------------------------------------------------------
 The features I worked on: 
 
